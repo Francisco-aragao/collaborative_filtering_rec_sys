@@ -1,0 +1,10 @@
+ideia
+
+salvar em cada item os usuarios e ratings
+
+ordenar itens com mais recomendacoes
+
+ao calcular rec, se usuario é novo então pego opiniao de outros K usuarios que já usaram o item
+
+se usuario não é novo (ex: tem mais 5 reviews), então uso similaridade pra recomendar
+
