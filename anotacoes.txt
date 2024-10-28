@@ -8,3 +8,27 @@ ao calcular rec, se usuario é novo então pego opiniao de outros K usuarios que
 
 se usuario não é novo (ex: tem mais 5 reviews), então uso similaridade pra recomendar
 
+output 6
+len <= 6
+simil <= 0.4 RUIM 
+
+output 5
+simil <= 0.3
+<= 7
+
+output4 fiz teste errado
+
+output3 float
+usando 7 na verificacao
+
+usando 3 com int foi pessimo
+1.32
+
+usando 3 com float foi ruim
+1.25
+
+usando 5 melhoru 
+1.22
+
+
+

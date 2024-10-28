@@ -22,12 +22,14 @@ df.to_csv('output.csv', index=False)
 
 import pandas as pd
 import numpy as np
+import json
 
 import argparse
 
 ITEMS_INFO: dict[str, dict[str, float]] = {}
 USERS_MEANS: dict[str, float] = {}
 SIMIL_ALL_ITEMS: dict[str, dict[str, float]] = {}
+ITEMS_AVERAGE_RATING: float = 0.0
 
 def calc_simil_all_items(): 
 
@@ -96,8 +98,6 @@ def find_most_simil_itens(item_target, items_info_sorted: dict[str, dict[str, fl
     return 'ARRUMAR'
 
 
-
-
 def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     # Create argument parser
@@ -106,22 +106,23 @@ def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
     parser.add_argument('ratings', type=str, help="ratings CSV file")
     parser.add_argument('targets', type=str, help="targets CSV file")
     parser.add_argument('submission', type=str, help="submission CSV file")
+    parser.add_argument('output', type=str, help="output CSV file")
 
     args = parser.parse_args()
 
-    if not (args.ratings and args.targets and args.submission):
+    if not (args.ratings and args.targets and args.submission and args.output):
         raise Exception
     
     ratings = pd.read_csv(args.ratings)
     targets = pd.read_csv(args.targets)
 
-    return ratings, targets
+    return ratings, targets, args.output
 
 RECOMENDATION = {}
 
 def recomendation_new():
 
-    return 3
+    return ITEMS_AVERAGE_RATING
 
 # recomend item mean normalized
 def recomendation_new_user (item: str) -> float:
@@ -140,6 +141,7 @@ def recomendation_new_user (item: str) -> float:
     
     return recomendation
 
+
 # recomend the user mean
 def recomendation_new_item (user: str) -> float:
 
@@ -153,7 +155,7 @@ def recomendation_new_item (user: str) -> float:
     return recomendation
 
 
-def find_recomendation(items_info_sorted: dict[str, dict[str, float]],ratings: pd.DataFrame, targets: pd.DataFrame):
+def find_recomendation(ratings: pd.DataFrame, targets: pd.DataFrame):
     
     #calc_simil_all_items()
 
@@ -178,26 +180,29 @@ def find_recomendation(items_info_sorted: dict[str, dict[str, float]],ratings: p
         
         user_info = df[df['UserId'] == user]
 
-        if len(item_info) <= 3:
+        len_user_info = len(user_info)
+        len_item_info = len(item_info)
+
+        if len_item_info <=7 and len_user_info <= 7:
+
+            recomendations.append((recomendation_new()))
+
+        elif len_item_info <= 7:
             
-            recomendations.append(round(recomendation_new_item(user)))
+            recomendations.append((recomendation_new_item(user)))
         
-        elif len(user_info) <= 3:
+        elif len_user_info <= 7:
 
-            recomendations.append(round(recomendation_new_user(item)))
+            recomendations.append((recomendation_new_user(item)))
 
-        else:
+        else: # usuario não é novo e item não é novo
             
             itens_choosed_by_user = list(list(user_info['ItemId']))
-            rat_itens_choosed_by_user = list(list(user_info['Rating']))
-
-            #print('itens choosed', itens_choosed_by_user)
-            #print('rat ', rat_itens_choosed_by_user)
-
 
             sum_rec_simil = 0
             sum_simil_abs = 0
 
+            # calculo similaridade entre item e itens escolhidos pelo usuario
             for i in range(len(itens_choosed_by_user)):
 
                 #print('comparing ', item, ' and ', itens_choosed_by_user[i])
@@ -207,8 +212,8 @@ def find_recomendation(items_info_sorted: dict[str, dict[str, float]],ratings: p
 
                     simil = calc_similarity(ITEMS_INFO[item], ITEMS_INFO[itens_choosed_by_user[i]])
 
-                    if simil == 0.0:
-                        simil = recomendation_new_user(item)
+                    if simil <= 0.3:
+                        continue  
 
                     if item not in SIMIL_ALL_ITEMS:
                     
@@ -229,7 +234,7 @@ def find_recomendation(items_info_sorted: dict[str, dict[str, float]],ratings: p
                      
             recomendation = sum_rec_simil / sum_simil_abs if sum_simil_abs != 0 else 0.0
 
-            recomendations.append(round(recomendation + USERS_MEANS[user]))                       
+            recomendations.append((recomendation + USERS_MEANS[user]))                       
 
 
     return recomendations
@@ -251,27 +256,12 @@ def find_user_items_and_ratings(userID: int, ratings: pd.DataFrame) -> list[tupl
     
     return user_items
 
-import time
 def calc_similarity(item_info1: dict[str, float], item_info2: dict[str, float]) -> float:
-
-    keys1 = item_info1.keys()
-    keys2 = item_info2.keys()
-
-    """ lenk1 =len(keys1)
-    lenk2 = len(keys2)
-
-
-    if lenk1 > lenk2 and lenk2 / lenk1 < 0.8:
-        return 0.0 
-
-    if lenk2 > lenk1 and lenk1 / lenk2 < 0.8:
-        return 0.0  """
 
     common_users = item_info1.keys() & item_info2.keys()
 
     if len(common_users) == 0:
         return 0.0
-
 
     sum_common_users = 0
     for user in common_users:
@@ -337,12 +327,15 @@ def ratings_normalizations(ratings: pd.DataFrame):
 
 if __name__ == '__main__':
 
-    import json
-    # receive parameters
-    ratings, targets = receive_args()
 
+    # receive parameters
+    ratings, targets, output = receive_args()
+
+    
     print('norm')
     #ratings_normalizations(ratings)
+
+    ITEMS_AVERAGE_RATING = ratings['Rating'].mean()
 
     with open('USERS_MEANS.json', 'r') as json_file:
         USERS_MEANS = json.load(json_file)
@@ -350,17 +343,12 @@ if __name__ == '__main__':
     with open('ITEMS_INFO.json', 'r') as json_file:
         ITEMS_INFO = json.load(json_file)
 
-    # store the 20 items with more recomendations
-    # 20 is an arbitrary number
-    k = 20
-    items_info_sorted = sorted_data = dict(sorted(ITEMS_INFO.items(), key=lambda item: len(item[1]), reverse=True)[:k])
-
     print('Rec')
-    rec = find_recomendation(items_info_sorted, ratings, targets)
+    rec = find_recomendation(ratings, targets)
 
     df = targets.copy()
 
     df['Rating'] = rec
 
     # Write the DataFrame to a CSV file
-    df.to_csv('output.csv', index=False)
+    df.to_csv(output, index=False)
