@@ -1,9 +1,7 @@
 # execution: python3 main.py ratings.csv targets.csv > submission.csv
 
-import os
 import pandas as pd
 import numpy as np
-import json
 import argparse
 
 # Global variables used to store important values
@@ -29,6 +27,7 @@ def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     parser.add_argument("ratings", type=str, help="ratings CSV file")
     parser.add_argument("targets", type=str, help="targets CSV file")
+    parser.add_argument("--storeOutput", type=str, help="flag to store output in a csv file")
 
     args = parser.parse_args()
 
@@ -38,7 +37,9 @@ def receive_args() -> tuple[pd.DataFrame, pd.DataFrame]:
     ratings = pd.read_csv(args.ratings)
     targets = pd.read_csv(args.targets)
 
-    return ratings, targets
+    store_output = args.storeOutput if args.storeOutput else None
+
+    return ratings, targets, store_output
 
 
 def recomendation_new_user_and_item() -> float:
@@ -109,16 +110,10 @@ def find_recomendation(ratings: pd.DataFrame, targets: pd.DataFrame):
             sum(similarity * rating) / sum(abs(similarity))
     """
 
-    # preparing input data
-    """ df = ratings.copy()
-    df[["UserId", "ItemId"]] = df["UserId:ItemId"].str.split(":", expand=True)
-    df = df.drop(columns=["UserId:ItemId"]) """
-
-
     all_recomendations = []
 
-    for index, row in targets.iterrows():
-        print(index)
+    for _, row in targets.iterrows():
+        
         user_item = row.iloc[0]
 
         user, item = user_item.split(":")
@@ -126,9 +121,6 @@ def find_recomendation(ratings: pd.DataFrame, targets: pd.DataFrame):
         users_rated_item = ITEMS_INFO_NORM[item].keys()
         itens_rated_by_user = USERS_INFO[user]
 
-        """ users_rated_item = df[df["ItemId"] == item]
-        itens_rated_by_user = df[df["UserId"] == user] """
-        
         len_itens_rated_by_user = len(itens_rated_by_user)
         len_users_rated_item = len(users_rated_item)
 
@@ -228,7 +220,7 @@ def calc_similarity(
     return sum_common_users / (sum_item1 * sum_item2)
 
 
-def ratings_normalizations(ratings: pd.DataFrame):
+def normalizing_ratings(ratings: pd.DataFrame):
 
     """
         Normalizing the ratings of the users.
@@ -277,50 +269,37 @@ def ratings_normalizations(ratings: pd.DataFrame):
 
             value[user] = rating - item_mean
     
-    # storing the information as json files to avoid normalizing the data again
-    with open("ITEMS_INFO.json", "w") as json_file:
-        json.dump(ITEMS_INFO_NORM, json_file, indent=4)
-
-    with open("USERS_MEANS.json", "w") as json_file:
-        json.dump(USERS_MEANS, json_file, indent=4)
-    
-    with open("USERS_INFO.json", "w") as json_file:
-        json.dump(USERS_INFO, json_file, indent=4)
 
 
-def store_output(targets: pd.DataFrame, recomendations: list):
+def store_print_output(key: str, targets: pd.DataFrame, recomendations: list):
     """
-        Store output in a csv file
+        Store output in a csv file or just print in the console based on the key received
     """
 
     # to store the results, just copy the target dataset and add a new column with the recomendations
     df = targets.copy()
     df["Rating"] = recomendations
-    print("Saving results...")
-    df.to_csv('output_file.csv', index=False)
+
+    if key:
+
+        df.to_csv('output_file.csv', index=False)
+    
+    print("UserId:ItemId,Rating")
+    for _, row in df.iterrows():
+        print(row["UserId:ItemId"] + "," + str(row["Rating"]))
+        
+
+
 
 if __name__ == "__main__":
 
     # receive parameters
-    ratings, targets = receive_args()
+    ratings, targets, output_flag = receive_args()
 
     ITEMS_AVERAGE_RATING = ratings["Rating"].mean()
 
-    if os.path.exists("USERS_MEANS.json") and os.path.exists("ITEMS_INFO.json") and os.path.exists("USERS_INFO.json"):
-        with open("USERS_MEANS.json", "r") as json_file:
-            USERS_MEANS = json.load(json_file)
+    normalizing_ratings(ratings)
 
-        with open("ITEMS_INFO.json", "r") as json_file:
-            ITEMS_INFO_NORM = json.load(json_file)
-        
-        with open("USERS_INFO.json", "r") as json_file:
-            USERS_INFO = json.load(json_file)
-    else:
-        print("Normalizing ratings...")
-        ratings_normalizations(ratings)
-
-    print("Calculating recomendations...")
     rec = find_recomendation(ratings, targets)
 
-    print("Storing output...")
-    store_output(targets, rec)
+    store_print_output(output_flag, targets, rec)
