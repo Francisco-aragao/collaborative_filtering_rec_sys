@@ -1,8 +1,9 @@
-# execution: python3 main.py ratings.csv targets.csv > submission.csv
+# execution: python3 main.py ratings.csv targets.csv
+
+import argparse # default python library
 
 import pandas as pd
 import numpy as np
-import argparse
 
 # Global variables used to store important values
 # These variables are useful to avoid reading the input files multiple times during execution
@@ -13,6 +14,7 @@ SIMIL_ITEMS: dict[str, dict[str, float]] = {}
 ITEMS_AVERAGE_RATING: float = 0.0
 RECOMENDATION = {}
 
+# useful constants to filter different scenarios for the recomendation
 MIN_ITEMS_NECESSARY = 7
 MIN_USERS_NECESSARY = 7
 MIN_SIMILARITY_NECESSARY = 0.3
@@ -100,7 +102,7 @@ def update_simil_items(simil: float, item: str, item_rated_by_user: str):
     SIMIL_ITEMS[item_rated_by_user][item] = simil
 
 
-def find_recomendation(ratings: pd.DataFrame, targets: pd.DataFrame):
+def find_recomendation(targets: pd.DataFrame):
     """
     Calculate the recomednation based on differente scenarios
         new user and item -> mean of all ratings
@@ -283,11 +285,10 @@ def store_print_output(key: str, targets: pd.DataFrame, recomendations: list):
     if key:
 
         df.to_csv('output_file.csv', index=False)
-    
+
     print("UserId:ItemId,Rating")
     for _, row in df.iterrows():
         print(row["UserId:ItemId"] + "," + str(row["Rating"]))
-        
 
 
 
@@ -300,6 +301,6 @@ if __name__ == "__main__":
 
     normalizing_ratings(ratings)
 
-    rec = find_recomendation(ratings, targets)
+    rec = find_recomendation(targets)
 
     store_print_output(output_flag, targets, rec)
