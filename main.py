@@ -84,6 +84,44 @@ def recomendation_new_item(user: str) -> float:
 
     return recomendation
 
+def recomendation_frequent_item_user(itens_rated_by_user: list[str], user: str, item: str) -> float:
+    sum_recomendation_simil = 0
+    sum_simil_abs = 0
+
+    # runs over all itens that the user has rated, calculating the similarity
+    # and performing the recomendation
+    for item_rated_by_user in itens_rated_by_user:
+
+        if (
+            item not in SIMIL_ITEMS
+            or item_rated_by_user not in SIMIL_ITEMS[item]
+        ):
+
+            simil = calc_similarity(
+                ITEMS_INFO_NORM[item], ITEMS_INFO_NORM[item_rated_by_user]
+            )
+
+            if simil <= MIN_SIMILARITY_NECESSARY:
+                continue
+
+            update_simil_items(simil, item, item_rated_by_user)
+
+        # store info to make recomendation
+
+        sum_recomendation_simil += (
+            SIMIL_ITEMS[item][item_rated_by_user]
+            * ITEMS_INFO_NORM[item_rated_by_user][user]
+        )
+
+        sum_simil_abs += abs(SIMIL_ITEMS[item][item_rated_by_user])
+
+    recomendation = (
+        sum_recomendation_simil / sum_simil_abs if sum_simil_abs != 0 else 0.0
+    )
+
+    # user info is normalized, so the recomendation is normalized too.
+    # to get the real value, we need to add the mean of the respective user
+    return recomendation + USERS_MEANS[user]
 
 def update_simil_items(simil: float, item: str, item_rated_by_user: str):
     """ 
@@ -149,45 +187,7 @@ def find_recomendation(targets: pd.DataFrame):
 
         else:  # user and item already have a significant amount of ratings
 
-            sum_recomendation_simil = 0
-            sum_simil_abs = 0
-
-            # runs over all itens that the user has rated, calculating the similarity
-            # and performing the recomendation
-            for item_rated_by_user in itens_rated_by_user:
-
-                if (
-                    item not in SIMIL_ITEMS
-                    or item_rated_by_user not in SIMIL_ITEMS[item]
-                ):
-
-                    simil = calc_similarity(
-                        ITEMS_INFO_NORM[item], ITEMS_INFO_NORM[item_rated_by_user]
-                    )
-
-                    if simil <= MIN_SIMILARITY_NECESSARY:
-                        continue
-
-                    update_simil_items(simil, item, item_rated_by_user)
-
-                # store info to make recomendation
-
-                sum_recomendation_simil += (
-                    SIMIL_ITEMS[item][item_rated_by_user]
-                    * ITEMS_INFO_NORM[item_rated_by_user][user]
-                )
-
-                sum_simil_abs += abs(SIMIL_ITEMS[item][item_rated_by_user])
-
-            recomendation = (
-                sum_recomendation_simil / sum_simil_abs if sum_simil_abs != 0 else 0.0
-            )
-
-            # user info is normalized, so the recomendation is normalized too.
-            # to get the real value, we need to add the mean of the respective user
-            recomendation = recomendation + USERS_MEANS[user]
-
-            all_recomendations.append(recomendation)
+            all_recomendations.append(recomendation_frequent_item_user(itens_rated_by_user, user, item))
 
     return all_recomendations
 
